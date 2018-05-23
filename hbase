@@ -90,7 +90,7 @@ while i < len(livenodes):
         if CONFIG:
             # series configuration
             print '{nname}.label {label}'.format(nname=safeName, label=name)
-            print '{nname}.draw LINE2'.format(nname=safeName)
+            print '{nname}.draw LINE1'.format(nname=safeName)
     else:
         if not CONFIG:
             # series data
