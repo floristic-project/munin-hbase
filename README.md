@@ -12,7 +12,7 @@ Monitored data:
 ## usage
 Copy `hbase` file to Munin plugins folder, for ex. `/usr/local/share/munin/plugins`
 
-Symlink this file into `/etc/munin/plugins` once per series.
+Symlink this file to `/etc/munin/plugins` once per series.
 Example:
 ```
 ln -s /usr/local/share/munin/plugins/hbase /etc/munin/plugins/hbase_requestsPerSecond
@@ -21,7 +21,7 @@ ln -s /usr/local/share/munin/plugins/hbase /etc/munin/plugins/hbase_readRequests
 ln -s /usr/local/share/munin/plugins/hbase /etc/munin/plugins/hbase_writeRequestsCount
 ```
 
-Copy and edit if needed default configuration file `hbase.conf` to `/etc/munin/plugins-conf.d/hbase`
+Copy or symlink, and edit if needed, default configuration file `hbase.conf` to `/etc/munin/plugins-conf.d/hbase`
 
 Restart `munin-node`
 
@@ -30,6 +30,6 @@ Only HBase user and full path of `hbase` binary are needed.
 Example:
 ```
 [hbase*]
-user hbase
+user hdfs
 env.hbasebinary /usr/local/hbase/bin/hbase
 ```
