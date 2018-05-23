@@ -86,14 +86,15 @@ i = 0
 while i < len(livenodes):
     if (i % 2 == 0):
         name = livenodes[i].split(':')[0].strip()
+        safeName = name.replace('.', '_')
         if CONFIG:
             # series configuration
-            print '{nname}.label {label}'.format(nname=name, label=name)
-            print '{nname}.draw LINE2'.format(nname=name)
+            print '{nname}.label {label}'.format(nname=safeName, label=name)
+            print '{nname}.draw LINE2'.format(nname=safeName)
     else:
         if not CONFIG:
             # series data
             stats = livenodes[i].split(', ')
             data = stats[SERIES['index']].strip().split('=')[1]
-            print "{nname}.value {ndata}".format(nname=name, ndata=data)
+            print "{nname}.value {ndata}".format(nname=safeName, ndata=data)
     i += 1
