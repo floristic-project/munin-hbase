@@ -1,0 +1,105 @@
+#!/usr/bin/python
+
+import pwd
+import os
+import subprocess
+import re
+import sys
+
+# config
+SERIES_CONFIG = {
+  'requestsPerSecond': {
+    'title': '',
+    'vlabel': '',
+    'label': '',
+    'info': '',
+    'index': 0
+  },
+  'usedHeap': {
+    'title': '',
+    'vlabel': '',
+    'label': '',
+    'info': '',
+    'index': 2
+  },
+  'readRequestsCount': {
+    'title': '',
+    'vlabel': '',
+    'label': '',
+    'info': '',
+    'index': 11
+  },
+  'writeRequestsCount': {
+    'title': '',
+    'vlabel': '',
+    'label': '',
+    'info': '',
+    'index': 12
+  }
+}
+AVAILABLE_SERIES = SERIES_CONFIG.keys()
+
+# execute as "hdfs"
+uid = pwd.getpwnam('hdfs')[2]
+os.setuid(uid)
+
+# hbase cli path
+HBASE = '/home/hdfs/hbase-1.2.6/bin/hbase'
+
+# which series is requested ?
+commandNameParts = sys.argv[0].split('_')
+if (len(commandNameParts) > 1):
+    SERIES = commandNameParts[len(commandNameParts)-1]
+    try:
+        AVAILABLE_SERIES.index(SERIES)
+    except ValueError:
+        print 'unknown series', SERIES, ', available series:', str(AVAILABLE_SERIES)
+        sys.exit(1)
+else:
+    print 'plugin must be a symlink of the form "hbase_SERIESNAME"'
+    print 'available series:', str(AVAILABLE_SERIES)
+    sys.exit(2)
+
+# load series config
+SERIES = SERIES_CONFIG[SERIES]
+
+# config or data ?
+CONFIG = (len(sys.argv) > 1 and sys.argv[1] == 'config')
+
+if (CONFIG):
+    print '''graph_category hbase
+graph_title HBase master node info
+graph_vlabel 
+'''
+
+# run hbase shell
+ps = subprocess.Popen(('echo', 'status \'simple\''), stdout=subprocess.PIPE)
+output = subprocess.check_output((HBASE, 'shell', '-n'), stdin=ps.stdout)
+ps.wait()
+
+# extract live data nodes information
+regexp = re.compile('([0-9])+ live servers\n(.+)\n([0-9])+ dead servers\n(.+)', re.MULTILINE | re.IGNORECASE | re.DOTALL)
+m = regexp.search(output)
+
+livenodes = m.group(2).split('\n');
+i = 0
+while i < len(livenodes):
+    if (i % 2 == 0):
+        nom = livenodes[i].split(':')[0].strip()
+        print "nom:", nom 
+    else:
+        if CONFIG:
+            # series configuration
+            print "config !!"
+        else:
+            # series data
+            stats = livenodes[i].split(', ')
+            requestsPerSecond = stats[0].strip().split('=')[1]
+            usedHeap = stats[2].strip().split('=')[1]
+            readRequestsCount = stats[11].strip().split('=')[1]
+            writeRequestsCount = stats[12].strip().split('=')[1]
+            print "requestsPerSecond:", requestsPerSecond
+            print "usedHeap:", usedHeap
+            print "readRequestsCount:", readRequestsCount
+            print "writeRequestsCount:", writeRequestsCount
+    i += 1
