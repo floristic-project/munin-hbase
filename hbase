@@ -18,21 +18,25 @@ SERIES_CONFIG = {
   'requestsPerSecond': {
     'title': 'HBase requests per second',
     'vlabel': 'count',
+    'args': '--lower-limit 0',
     'index': 0
   },
   'usedHeap': {
     'title': 'HBase used memory',
     'vlabel': 'MB',
+    'args': '--lower-limit 0',
     'index': 2
   },
   'readRequestsCount': {
     'title': 'HBase total read requests',
     'vlabel': 'count',
+    'args': '',
     'index': 11
   },
   'writeRequestsCount': {
     'title': 'HBase total write requests',
     'vlabel': 'count',
+    'args': '',
     'index': 12
   }
 }
@@ -68,7 +72,8 @@ CONFIG = (len(sys.argv) > 1 and sys.argv[1] == 'config')
 if (CONFIG):
     print '''graph_category hbase
 graph_title {title}
-graph_vlabel {vlabel}'''.format(title=SERIES['title'], vlabel=SERIES['vlabel'])
+graph_vlabel {vlabel}
+graph_args {args}'''.format(title=SERIES['title'], vlabel=SERIES['vlabel'], args=SERIES['args'])
 
 # run hbase shell
 ps = subprocess.Popen(('echo', 'status \'simple\''), stdout=subprocess.PIPE)
