@@ -1,0 +1,147 @@
+#!/usr/bin/python
+
+#
+# A simple HBase plugin for Munin
+# 
+# Mathias CHOUET 2018/05 - IRD, Cirad
+# GPLv3
+#######################################
+# - 2018/06/06 Jean-Christophe Lombardo - Inria
+#      Switch to multigraph
+#      Switch to DERIVE when appropriate
+#
+
+import pwd
+import os
+import subprocess
+import re
+import sys
+
+# config
+SERIES_CONFIG = {
+  'requestsPerSecond': {
+    'title': 'HBase I/O: All Requests',
+    'vlabel': 'req/s',
+    'args': '--base 1000 --lower-limit 0',
+    'type': 'GAUGE',
+    'total': True,
+    'index': 0
+  },
+  'usedHeap': {
+    'title': 'HBase Memory: Heap Usage',
+    'vlabel': 'MB',
+    'args': '--base 1024 --lower-limit 0',
+    'type': 'GAUGE',
+    'total': True,
+    'index': 2
+  },
+  'storefileUncompressedSizeMB': {
+    'title': 'HBase Storage: Uncompressed Size',
+    'vlabel': 'MB',
+    'args': '--base 1024 --lower-limit 0',
+    'type' : 'GAUGE',
+    'total': True,
+    'index': 6
+  },
+  'readRequestsCount': {
+    'title': 'HBase I/O: Read Requests',
+    'vlabel': 'req/s',
+    'args': '--base 1000 --lower-limit 0',
+    'type' : 'DERIVE',
+    'total': True,
+    'index': 11
+  },
+  'writeRequestsCount': {
+    'title': 'HBase I/O: Write Requests',
+    'vlabel': 'req/s',
+    'args': '--base 1000 --lower-limit 0',
+    'type' : 'DERIVE',
+    'total': True,
+    'index': 12
+  }
+}
+
+# hbase cli path
+try:
+    HBASE = os.environ['hbasebinary']
+except KeyError:
+    # defaults to system command
+    HBASE = 'hbase'
+
+# run hbase shell
+ps = subprocess.Popen(('echo', 'status \'simple\''), stdout=subprocess.PIPE)
+devnull = open(os.devnull, 'w')
+output = subprocess.check_output((HBASE, 'shell', '-n'), stdin=ps.stdout, stderr=devnull)
+ps.wait()
+devnull.close()
+
+# extract live data nodes information
+regexp = re.compile('([0-9])+ live servers\n(.+)\n([0-9])+ dead servers\n(.+)', re.MULTILINE | re.IGNORECASE | re.DOTALL)
+m = regexp.search(output)
+
+livenodes = m.group(2).split('\n');
+
+
+# config or data ?
+CONFIG = (len(sys.argv) > 1 and sys.argv[1] == 'config')
+
+for name,SERIES in SERIES_CONFIG.iteritems():
+    print 'multigraph hbase_{name}'.format(name=name)
+    if (CONFIG):
+        print '''graph_category hbase
+graph_title {title}
+graph_vlabel {vlabel}'''.format(title=SERIES['title'], vlabel=SERIES['vlabel'], args=SERIES['args'])
+        if len(SERIES['args'])>0:
+            print 'graph_args {args}'.format(args=SERIES['args'])
+        if SERIES['total']:
+            print 'graph_total Total'
+    i = 0
+    while i < len(livenodes):
+        if (i % 2 == 0):
+            name = livenodes[i].split(':')[0].strip()
+            safeName = name.replace('.', '_')
+            if CONFIG:
+                # series configuration
+                print '{nname}.label {label}'.format(nname=safeName, label=name)
+                if i==0:
+                    print '{nname}.draw AREA'.format(nname=safeName)
+                else:
+                    print '{nname}.draw STACK'.format(nname=safeName)
+                print '{nname}.type {dtype}'.format(nname=safeName, dtype=SERIES['type'])
+                if SERIES['type'] == 'DERIVE':
+                    print '{nname}.min 0'.format(nname=safeName)
+        else:
+            if not CONFIG:
+                # series data
+                stats = livenodes[i].split(', ')
+                data = stats[SERIES['index']].strip().split('=')[1]
+                print "{nname}.value {ndata}".format(nname=safeName, ndata=data)
+
+        i += 1
+    print
+
+# Add All requests per hour
+if 'readRequestsCount' in SERIES_CONFIG.keys() and 'writeRequestsCount' in SERIES_CONFIG.keys():
+    if CONFIG:
+        print 'multigraph hbase_req_per_hour'
+        print 'graph_category hbase'
+        print 'update no' 
+        print 'graph_period hour'
+        print 'graph_title TEST I/O: all requests per hour'
+        print 'graph_total Total'
+        print 'graph_vlabel req/hour'
+#        print 'graph_args --logarithmic'
+        print 'write.label Write'
+        print 'write.draw AREA'
+        print 'read.label Read'
+        print 'read.draw STACK'
+        read = ''
+        write = ''
+        for i in range(0, len(livenodes), 2):
+            name = livenodes[i].split(':')[0].strip()
+            safeName = name.replace('.', '_')
+            read += ' hbase_readRequestsCount.'+safeName
+            write += ' hbase_writeRequestsCount.'+safeName
+        print 'read.sum '+read
+        print 'write.sum '+write
+
